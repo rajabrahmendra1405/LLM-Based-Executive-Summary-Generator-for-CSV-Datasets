@@ -27,7 +27,7 @@
 
 1. Clone the repository:
     ```bash
-    git clone https://github.com/kanitvural/data_analyzer_app_with_llm_agents.git
+    git clone https://github.com/<user-name>/data_analyzer_app_with_llm_agents.git
     cd data_analyzer_app_with_llm_agents
     python -m venv venv
     - Windows: venv\Scripts\activate
@@ -60,12 +60,7 @@
     - Use the "Ask Question" feature to ask any query regarding your dataset.
     - The selected LLM will analyze and provide detailed responses.
 
-## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Contact
-
-For any questions or feedback, please contact [kanitvural@gmail.com](mailto:kanitvural@gmail.com).
 
 
