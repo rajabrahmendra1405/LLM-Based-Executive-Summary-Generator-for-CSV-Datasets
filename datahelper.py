@@ -9,40 +9,45 @@ from langchain_experimental.agents.agent_toolkits.pandas.base import (
 )
 
 # ------------------------------------------------------------
-# Universal CSV Reader (Automatic Encoding Detection)
+# Universal CSV Reader (Automatic Encoding Detection + Safe UTF-8 Fallback)
 # ------------------------------------------------------------
 def read_csv_any_encoding(file_obj):
     """
-    Reads a CSV file using automatic encoding detection.
-    Works for both local file paths and Streamlit uploaded files.
-    Prevents UnicodeDecodeError for non-UTF-8 CSVs.
+    Reads a CSV file safely with automatic encoding detection.
+    Works for both Streamlit uploaded files and file paths.
+    If detection fails, it gracefully falls back to UTF-8 with errors='replace'.
     """
     try:
-        # If it's a Streamlit UploadedFile (has read() method)
         if hasattr(file_obj, "read"):
+            # Streamlit uploaded file
             raw_bytes = file_obj.read()
             detected = chardet.detect(raw_bytes)
             encoding = detected.get("encoding") or "utf-8"
-            file_obj.seek(0)  # Reset pointer for pandas
-            return pd.read_csv(file_obj, low_memory=False, encoding=encoding)
+            file_obj.seek(0)
+            try:
+                return pd.read_csv(file_obj, encoding=encoding, low_memory=False)
+            except UnicodeDecodeError:
+                file_obj.seek(0)
+                return pd.read_csv(file_obj, encoding="utf-8", errors="replace", low_memory=False)
         else:
-            # If it's a file path
+            # Local file path
             with open(file_obj, "rb") as f:
                 raw_bytes = f.read()
                 detected = chardet.detect(raw_bytes)
                 encoding = detected.get("encoding") or "utf-8"
-            return pd.read_csv(file_obj, low_memory=False, encoding=encoding)
+            try:
+                return pd.read_csv(file_obj, encoding=encoding, low_memory=False)
+            except UnicodeDecodeError:
+                return pd.read_csv(file_obj, encoding="utf-8", errors="replace", low_memory=False)
     except Exception as e:
-        raise ValueError(f"Unable to read CSV file due to encoding issue: {str(e)}")
-
+        raise ValueError(f"Unable to read CSV file due to encoding issue: {e}")
 
 # ------------------------------------------------------------
 # Load environment variables (.env for local, st.secrets for Streamlit Cloud)
 # ------------------------------------------------------------
 load_dotenv()
 
-# Try to load from Streamlit secrets first (Cloud), else .env (Local)
-api_key = None
+# Try loading Groq API key (Streamlit Cloud first, then local)
 try:
     api_key = st.secrets["groq"]["api_key"]
 except Exception:
@@ -50,8 +55,8 @@ except Exception:
 
 if not api_key:
     raise ValueError(
-        "Groq API key not found. Please add it to Streamlit secrets (in Cloud) "
-        "or define it in your local .env file."
+        "Groq API key not found. Please add it to Streamlit secrets (Cloud) "
+        "or define GROQ_API_KEY in your local .env file."
     )
 
 # ------------------------------------------------------------
@@ -68,14 +73,12 @@ except Exception as e:
 
 selected_llm = llm_groq
 
-
 # ------------------------------------------------------------
 # Summarize CSV Data
 # ------------------------------------------------------------
 def summarize_csv(filename):
     """Generate a high-level summary of the uploaded CSV file."""
     df = read_csv_any_encoding(filename)
-
     pandas_agent = create_pandas_dataframe_agent(
         llm=selected_llm,
         df=df,
@@ -102,7 +105,6 @@ def summarize_csv(filename):
 
     return data_summary
 
-
 # ------------------------------------------------------------
 # Get DataFrame
 # ------------------------------------------------------------
@@ -111,8 +113,7 @@ def get_dataframe(filename):
     try:
         return read_csv_any_encoding(filename)
     except Exception as e:
-        raise ValueError(f"Error loading DataFrame from {filename}: {str(e)}")
-
+        raise ValueError(f"Error loading DataFrame from {filename}: {e}")
 
 # ------------------------------------------------------------
 # Analyze Trend
@@ -134,8 +135,7 @@ def analyze_trend(filename, variable):
             "Consider the dataset rows as chronological and provide data-driven reasoning."
         )
     except Exception as e:
-        raise ValueError(f"Error analyzing trend for column '{variable}': {str(e)}")
-
+        raise ValueError(f"Error analyzing trend for '{variable}': {e}")
 
 # ------------------------------------------------------------
 # Answer Natural-Language Question
@@ -153,5 +153,4 @@ def ask_question(filename, question):
         )
         return pandas_agent.run(question)
     except Exception as e:
-        raise ValueError(f"Error answering question: {str(e)}")
-
+        raise ValueError(f"Error answering question: {e}")
