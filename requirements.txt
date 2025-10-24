@@ -16,5 +16,6 @@ tabulate
 black
 isort
 langchain-groq
+chardet
 
 
