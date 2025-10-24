@@ -15,4 +15,6 @@ langchain_cohere
 tabulate
 black
 isort
+langchain-groq
+
 
